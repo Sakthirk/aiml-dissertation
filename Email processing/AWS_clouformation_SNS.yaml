@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Stack for SNS topic with SQS queue and Lambda consumer'
+
+Resources:
+  # SNS Topic
+  NotificationTopic:
+    Type: 'AWS::SNS::Topic'
+    Properties:
+      DisplayName: 'Email Notification Topic'
+      TopicName: 'email-notification-topic'
+
+  # SQS Queue
+  MessageQueue:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      QueueName: 'email-notification-queue'
+
+  # Lambda Function
+  MessageProcessorFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: 'email-notification-processor'
+      Handler: 'index.handler'
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          
+          def handler(event, context):
+              for record in event['Records']:
+                  message = record['body']
+                  print(f'Received message: {message}')
+                  # Process the message as needed
+      Runtime: 'python3.8'
+
+  # SNS Topic Subscription to SQS Queue
+  SNSToSQSSubscription:
+    Type: 'AWS::SNS::Subscription'
+    Properties:
+      TopicArn: !Ref NotificationTopic
+      Protocol: 'sqs'
+      Endpoint: !GetAtt MessageQueue.Arn
+
+  # Lambda Permission to SQS
+  LambdaSQSPermission:
+    Type: 'AWS::Lambda::EventSourceMapping'
+    Properties:
+      BatchSize: 10
+      EventSourceArn: !GetAtt MessageQueue.Arn
+      FunctionName: !Ref MessageProcessorFunction
+      Enabled: true
+
+  # IAM Role for Lambda
+  LambdaExecutionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Service: 'lambda.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: 'lambda-execution-policy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: 'arn:aws:logs:*:*:*'
+              - Effect: 'Allow'
+                Action:
+                  - 'sqs:ReceiveMessage'
+                  - 'sqs:DeleteMessage'
+                  - 'sqs:GetQueueAttributes'
+                Resource: !GetAtt MessageQueue.Arn

@@ -1,0 +1,19 @@
+queue_policy.
+
+{
+  "Version": "2012-10-17",
+  "Id": "Allow-SNS-Publish",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "SQS:SendMessage",
+      "Resource": "arn:aws:sqs:us-east-1:337909783829:email-notification-queue",
+      "Condition": {
+        "ArnEquals": {
+          "aws:SourceArn": "arn:aws:sns:us-east-1:337909783829:email-notification-topic"
+        }
+      }
+    }
+  ]
+}
