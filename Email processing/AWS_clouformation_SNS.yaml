@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Stack for SNS topic with SQS queue and Lambda consumer'
+Description: 'Stack for SNS topic with multiple SQS queues and Lambda consumers'
 
 Resources:
   # SNS Topic
@@ -7,48 +7,112 @@ Resources:
     Type: 'AWS::SNS::Topic'
     Properties:
       DisplayName: 'Email Notification Topic'
-      TopicName: 'email-notification-topic'
+      TopicName: 'customer-segmentation-topic'
 
-  # SQS Queue
-  MessageQueue:
+  # SQS Queues
+  EmailProcessingQueue:
     Type: 'AWS::SQS::Queue'
     Properties:
-      QueueName: 'email-notification-queue'
+      QueueName: 'email-processing-queue'
 
-  # Lambda Function
-  MessageProcessorFunction:
+  FormProcessingQueue:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      QueueName: 'form-processor-queue'
+
+  # IAM Policy for SQS to allow SNS to send messages
+  EmailProcessingQueuePolicy:
+    Type: 'AWS::SQS::QueuePolicy'
+    Properties:
+      Queues:
+        - !Ref EmailProcessingQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Id: 'Allow-SNS-Publish'
+        Statement:
+          - Effect: 'Allow'
+            Principal: '*'
+            Action: 'SQS:SendMessage'
+            Resource: !GetAtt EmailProcessingQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref NotificationTopic
+
+  FormProcessingQueuePolicy:
+    Type: 'AWS::SQS::QueuePolicy'
+    Properties:
+      Queues:
+        - !Ref FormProcessingQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Id: 'Allow-SNS-Publish'
+        Statement:
+          - Effect: 'Allow'
+            Principal: '*'
+            Action: 'SQS:SendMessage'
+            Resource: !GetAtt FormProcessingQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref NotificationTopic
+
+  # Lambda Function for Form Processing (Containerized)
+  EmailProcessorFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
-      FunctionName: 'email-notification-processor'
+      FunctionName: 'email-processor-lambda'
+      PackageType: 'Image'
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ImageUri: '337909783829.dkr.ecr.us-east-1.amazonaws.com/email-processing-docker:latest'
+
+
+  # Lambda Function for Email Processing
+  FormProcessorFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: 'form-processing-lambda'
       Handler: 'index.handler'
       Role: !GetAtt LambdaExecutionRole.Arn
       Code:
-        ZipFile: |
-          import json
-          import boto3
-          
-          def handler(event, context):
-              for record in event['Records']:
-                  message = record['body']
-                  print(f'Received message: {message}')
-                  # Process the message as needed
+        S3Bucket: 'aiml-dissertation'
+        S3Key: 'lambda/form-processing-lambda.zip'
       Runtime: 'python3.8'
 
-  # SNS Topic Subscription to SQS Queue
-  SNSToSQSSubscription:
+
+  # SNS Topic Subscription to SQS Queues
+  EmailQueueSubscription:
     Type: 'AWS::SNS::Subscription'
     Properties:
       TopicArn: !Ref NotificationTopic
       Protocol: 'sqs'
-      Endpoint: !GetAtt MessageQueue.Arn
+      Endpoint: !GetAtt EmailProcessingQueue.Arn
+      FilterPolicy:
+        Source: ["email"]
 
-  # Lambda Permission to SQS
-  LambdaSQSPermission:
+  FormQueueSubscription:
+    Type: 'AWS::SNS::Subscription'
+    Properties:
+      TopicArn: !Ref NotificationTopic
+      Protocol: 'sqs'
+      Endpoint: !GetAtt FormProcessingQueue.Arn
+      FilterPolicy:
+        Source: ["form"]
+
+  # Lambda Permissions to SQS
+  EmailLambdaSQSPermission:
     Type: 'AWS::Lambda::EventSourceMapping'
     Properties:
       BatchSize: 10
-      EventSourceArn: !GetAtt MessageQueue.Arn
-      FunctionName: !Ref MessageProcessorFunction
+      EventSourceArn: !GetAtt EmailProcessingQueue.Arn
+      FunctionName: !Ref EmailProcessorFunction
+      Enabled: true
+
+  FormLambdaSQSPermission:
+    Type: 'AWS::Lambda::EventSourceMapping'
+    Properties:
+      BatchSize: 10
+      EventSourceArn: !GetAtt FormProcessingQueue.Arn
+      FunctionName: !Ref FormProcessorFunction
       Enabled: true
 
   # IAM Role for Lambda
@@ -78,4 +142,6 @@ Resources:
                   - 'sqs:ReceiveMessage'
                   - 'sqs:DeleteMessage'
                   - 'sqs:GetQueueAttributes'
-                Resource: !GetAtt MessageQueue.Arn
+                Resource:
+                  - !GetAtt EmailProcessingQueue.Arn
+                  - !GetAtt FormProcessingQueue.Arn

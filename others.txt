@@ -17,3 +17,34 @@ queue_policy.
     }
   ]
 }
+
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "sqs:ReceiveMessage",
+                "sqs:DeleteMessage",
+                "sqs:GetQueueAttributes",
+                "sqs:GetQueueUrl"
+            ],
+            "Resource": "arn:aws:sqs:us-east-1:337909783829:form-submission-queue"
+        }
+    ]
+}
+
+
+{
+  "Source": [
+    "form"
+  ]
+}
+
+
+{
+  "Source": [
+    "email"
+  ]
+}

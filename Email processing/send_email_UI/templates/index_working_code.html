@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS SNS UI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <script>
+        function submitForm() {
+            let formData = new URLSearchParams(new FormData(document.getElementById("formSubmission")));
+            let statusDiv = document.getElementById("formStatus");
+            statusDiv.innerHTML = "<span class='text-primary'>Submitting...</span>";
+
+            fetch("/submit_form", {
+                method: "POST",
+                body: formData,
+                headers: { "Content-Type": "application/x-www-form-urlencoded" }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    statusDiv.innerHTML = "<span class='text-success'>Form submitted! Message ID: " + data.message_id + "</span>";
+                } else {
+                    statusDiv.innerHTML = "<span class='text-danger'>Error: " + data.error + "</span>";
+                }
+            })
+            .catch(error => {
+                statusDiv.innerHTML = "<span class='text-danger'>Unexpected error: " + error + "</span>";
+            });
+        }
+
+        function sendEmail() {
+            let emailData = new URLSearchParams(new FormData(document.getElementById("emailForm")));
+            let emailStatusDiv = document.getElementById("emailStatus");
+            emailStatusDiv.innerHTML = "<span class='text-primary'>Sending email...</span>";
+
+            fetch("/send_email", {
+                method: "POST",
+                body: emailData,
+                headers: { "Content-Type": "application/x-www-form-urlencoded" }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    emailStatusDiv.innerHTML = "<span class='text-success'>Email sent! Message ID: " + data.message_id + "</span>";
+                } else {
+                    emailStatusDiv.innerHTML = "<span class='text-danger'>Error: " + data.error + "</span>";
+                }
+            })
+            .catch(error => {
+                emailStatusDiv.innerHTML = "<span class='text-danger'>Unexpected error: " + error + "</span>";
+            });
+        }
+    </script>
+
+</head>
+<body class="p-4">
+
+    <h2 class="text-center mb-4">Dissertation - Project</h2>
+
+    <ul class="nav nav-tabs" id="myTab">
+        <li class="nav-item">
+            <a class="nav-link active" id="form-tab" data-bs-toggle="tab" href="#form">Form Submission</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="email-tab" data-bs-toggle="tab" href="#email">Send Email</a>
+        </li>
+    </ul>
+
+    <div class="tab-content mt-3">
+        
+        <!-- Form Submission Tab -->
+        <div class="tab-pane fade show active" id="form">
+            <form id="formSubmission">
+                <div class="mb-3">
+                    <label class="form-label">Name</label>
+                    <input type="text" class="form-control" name="name" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" name="email" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Phone Number</label>
+                    <input type="text" class="form-control" name="phone_number" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Country of Residence</label>
+                    <input type="text" class="form-control" name="country_of_residence" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Preferred University</label>
+                    <input type="text" class="form-control" name="preferred_university" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Highest Qualification Completed</label>
+                    <select class="form-control" name="highest_qualification">
+                        <option>UG</option>
+                        <option>PG</option>
+                        <option>PHD</option>
+                        <option>Others</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Preferred Contact Time</label>
+                    <select class="form-control" name="preferred_contact_time">
+                        <option>10AM - 12 PM</option>
+                        <option>12 PM - 2 PM</option>
+                        <option>2 PM - 4 PM</option>
+                        <option>4 PM - 6 PM</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Desired Country for Studies</label>
+                    <select class="form-control" name="desired_country">
+                        <option>Australia</option>
+                        <option>Canada</option>
+                        <option>UK</option>
+                        <option>USA</option>
+                        <option>South Korea</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Intended Field of Study or Program</label>
+                    <input type="text" class="form-control" name="field_of_study" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Start Date</label>
+                    <input type="date" class="form-control" name="start_date" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Budget for Tuition and Living Expenses</label>
+                    <select class="form-control" name="budget">
+                        <option>10,000 - 20,000 USD</option>
+                        <option>20,000 - 30,000 USD</option>
+                        <option>30,000 - 50,000 USD</option>
+                        <option>50,000 - 70,000 USD</option>
+                        <option>70,000+ USD</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Proficiency Test</label>
+                    <select class="form-control" name="proficiency_test">
+                        <option>IELTS</option>
+                        <option>TOEFL</option>
+                        <option>Others</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Proficiency Test Score</label>
+                    <input type="text" class="form-control" name="proficiency_test_score">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">How do you know about us?</label>
+                    <select class="form-control" name="how_you_know">
+                        <option>Event</option>
+                        <option>Social Media</option>
+                        <option>Advertisement</option>
+                        <option>Website</option>
+                        <option>Referral</option>
+                        <option>Others</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Sponsor</label>
+                    <select class="form-control" name="sponsor">
+                        <option>Bank</option>
+                        <option>Parents</option>
+                        <option>Self</option>
+                        <option>Others</option>
+                    </select>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="submitForm()">Submit</button>
+                <p id="formStatus" class="mt-3"></p>
+            </form>
+        </div>
+
+        <!-- Send Email Tab -->
+        <div class="tab-pane fade" id="email">
+            <form id="emailForm">
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input type="text" class="form-control" name="email" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Message</label>
+                    <textarea class="form-control" name="email_message" rows="4" required></textarea>
+                </div>
+                <button type="button" class="btn btn-success" onclick="sendEmail()">Send Email</button>
+                <p id="emailStatus" class="mt-3"></p> <!-- Inline Status Message -->
+            </form>
+        </div>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>

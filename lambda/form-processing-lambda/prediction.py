@@ -22,8 +22,6 @@ logging.basicConfig(
 )
 
 
-
-
 s3_client = boto3.client('s3')
 
 dynamodb = boto3.resource("dynamodb", region_name="us-east-1")  # Change to your region
@@ -35,15 +33,16 @@ def download_model_files(bucket_name, file_key):
     response = s3_client.get_object(Bucket=bucket_name, Key=file_key)
     file_stream = response['Body']
     
-    print(f"Downloading {file_key} from {bucket_name}...")
+    logging.info(f"Downloading {file_key} from {bucket_name}...")
 
     try:
         # Read and load the model
         model = joblib.load(io.BytesIO(file_stream.read()))
-        print(f"Successfully loaded {file_key}.")
+        logging.info(f"Successfully loaded {file_key}.")
+        
         return model
     except Exception as e:
-        print(f"Error loading {file_key}: {e}")
+        logging.error(f"Error loading {file_key}: {e}")
         return None
     
 def download_models():
@@ -163,10 +162,9 @@ def store_prediction(source_data,features, email, prediction,source):
     }
     # Insert into DynamoDB
     Predictions_table.put_item(Item=item)
-    print(f"Stored Prediction ID: {prediction_id}")
+    logging.info(f"Stored Prediction ID: {prediction_id}")
 
 def standardize_score(english_test,english_test_score:float):
-    print(english_test,english_test_score)
     if english_test and english_test_score:
         if english_test == "IELTS":
             # IELTS: Original scale 0-9
@@ -199,7 +197,7 @@ def match_features_to_model_columns(features):
         "app_used": ["No"],
         "sponsor": [features.get('sponsor')],
         "event_attended": ["No"],
-        "standardized_test_Score": [standardize_score(features.get('proficiency_test'),proficiency_test_score)]  # New feature
+        "standardized_test_Score": [standardize_score(features.get('proficiency_test'),proficiency_test_score)]
     }
 
     
@@ -210,31 +208,12 @@ def lambda_handler(event, context):
 
     try:
 
-        # for record in event['Records']:
-        #     message = json.loads(json.loads(record['body'])['Message'])
-        #     # print(f'Received message: {message}')
-        #     logging.info(f'Received message: {message}')
+        for record in event['Records']:
+            message = json.loads(json.loads(record['body'])['Message'])
+            
+            logging.info(f'Received message: {message}')
 
-        #     source_data = message.get('data')
-
-        for i in [1]:
-            source_data = {
-                "name": "test_user",
-                "phone_number": "7010919295",
-                "country_of_residence": "India",
-                "preferred_university": "University of Cambridge",
-                "highest_qualification": "UG",
-                "preferred_contact_time": "10AM - 12 PM",
-                "desired_country": "UK",
-                "field_of_study": "Data Science",
-                "start_date": "2025-06-30",
-                "budget": "30,000 - 50,000 USD",
-                "proficiency_test": "IELTS",
-                "proficiency_test_score": "8.5",
-                "how_you_know": "Referral",
-                "sponsor": "Self",
-                "email":"test_user2@gmail.com"
-            }
+            source_data = message.get('data')
 
             logging.info("Downloading models")
 
@@ -244,7 +223,6 @@ def lambda_handler(event, context):
             logging.info("Matching features")
 
             features = match_features_to_model_columns(source_data)
-            print(features)
             logging.info(f"features - {json.dumps(features)}")
             
             # Convert dictionary to DataFrame
@@ -274,6 +252,3 @@ def lambda_handler(event, context):
 
     except Exception as error:
         print(error)
-
-
-lambda_handler(None, None)

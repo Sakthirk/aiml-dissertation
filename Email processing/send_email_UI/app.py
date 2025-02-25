@@ -5,7 +5,7 @@ import json
 app = Flask(__name__)
 
 sns_client = boto3.client('sns', region_name="us-east-1")
-SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:337909783829:email-notification-topic"
+SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:337909783829:customer-segmentation-topic"
 
 @app.route('/')
 def index():
@@ -17,6 +17,7 @@ def submit_form():
         data = {
             "default": json.dumps({
                 "name": request.form.get('name', ''),
+                "email": request.form.get('email', ''),
                 "phone_number": request.form.get('phone_number', ''),
                 "country_of_residence": request.form.get('country_of_residence', ''),
                 "preferred_university": request.form.get('preferred_university', ''),
@@ -49,13 +50,16 @@ def submit_form():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
+
+
 @app.route('/send_email', methods=['POST'])
 def send_email():
     try:
 
         email_data = {
             "default": json.dumps({
-                "email_message": request.form['email_message']
+                "email_body": request.form['email_message'],
+                "email":request.form['email'],
             })
         }
 
@@ -63,7 +67,6 @@ def send_email():
         response = sns_client.publish(
             TopicArn=SNS_TOPIC_ARN,
             Message=json.dumps(email_data),
-            Subject="Custom Email",
             MessageStructure="json",
             MessageAttributes={
                 'Source': {
@@ -77,5 +80,46 @@ def send_email():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table('Predictions')
+
+@app.route('/get_emails', methods=['GET'])
+def get_emails():
+    response = table.scan(ProjectionExpression="email")
+    emails = list(set(item['email'] for item in response.get('Items', [])))
+    return jsonify(emails)
+
+@app.route('/get_submissions', methods=['GET'])
+def get_submissions():
+    filter_value = request.args.get('filter_value')  # Get filter from request
+
+    if filter_value:
+        response = table.scan(
+            FilterExpression="email = :email",
+            ExpressionAttributeValues={":email": filter_value}
+        )
+    else:
+        response = table.scan()  # No filter, get all records
+
+    return jsonify(response.get("Items", []))
+
 if __name__ == '__main__':
     app.run(debug=True)
+
+
+# from boto3.dynamodb.conditions import Key
+
+# # Initialize the DynamoDB resource
+# # dynamodb = boto3.resource("dynamodb")
+# clickstream_table = dynamodb.Table("ClickstreamTable")
+
+# def get_clickstream_data(email_id):
+#     response = clickstream_table.query(
+#         KeyConditionExpression=Key("email_id").eq(email_id)
+#     )
+#     return response["Items"]
+
+# # Example usage
+# user_email = "user1@gmail.com"
+# clickstream_data = get_clickstream_data(user_email)
+# print(json.dumps(clickstream_data, indent=4))
