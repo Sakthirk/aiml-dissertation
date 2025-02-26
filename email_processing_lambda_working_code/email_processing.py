@@ -83,17 +83,17 @@ def download_email_intent_classification_models():
     model = download_model_files(bucket_name, model_file_key)
     _vectorizer = download_model_files(bucket_name, vectorizer_file_key)
 
-    # Check if the files are downloaded successfully
-    # Debugging: Check if vectorizer is loaded properly
-    if _vectorizer is None:
-        logging.info("Vectorizer file not found or could not be loaded.")
-    else:
-        logging.info("Vectorizer loaded successfully.")
+    # # Check if the files are downloaded successfully
+    # # Debugging: Check if vectorizer is loaded properly
+    # if _vectorizer is None:
+    #     logging.info("Vectorizer file not found or could not be loaded.")
+    # else:
+    #     logging.info("Vectorizer loaded successfully.")
 
-    if not hasattr(_vectorizer, "vocabulary_") or _vectorizer.vocabulary_ is None:
-        logging.info("Vectorizer is NOT fitted. You need to fit it first.")
-    else:
-        logging.info("Vectorizer is correctly fitted.")
+    # if not hasattr(_vectorizer, "vocabulary_") or _vectorizer.vocabulary_ is None:
+    #     logging.info("Vectorizer is NOT fitted. You need to fit it first.")
+    # else:
+    #     logging.info("Vectorizer is correctly fitted.")
 
 
     return model, _vectorizer
@@ -245,8 +245,20 @@ def extract_email_features(email_text, doc):
 def get_intake_with_year(date_str):
     if date_str is None:
         return None
-    # Convert string to datetime object
-    date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+
+    try:
+        date_obj = datetime.strptime(date_str, "%B %Y")  # Try "December 2025" format (full month name)
+    except ValueError:
+        try:
+            date_obj = datetime.strptime(date_str, "%b %Y")  # Try "Dec 2025" format (abbreviated month name)
+        except ValueError:
+            try:
+                date_obj = datetime.strptime(date_str, "%Y-%m")  # Try "YYYY-MM" format
+            except ValueError as e:
+                print(e)
+                date_obj = datetime.strptime(date_str, "%Y-%m-%d")  # Fallback to "YYYY-MM-DD" format
+
+
     month, year = date_obj.month, date_obj.year
 
     # Define intake periods
@@ -259,7 +271,7 @@ def get_intake_with_year(date_str):
 
     return f"{intake} {year}"
 
-def months_between_dates(target_date_str, date_format="%Y-%m-%d"):
+def months_between_dates(target_date_str):
 
     if target_date_str is None:
         return None
@@ -267,15 +279,41 @@ def months_between_dates(target_date_str, date_format="%Y-%m-%d"):
     # Get the current date
     current_date = datetime.today()
 
-    # Convert the target date string to a datetime object
-    target_date = datetime.strptime(target_date_str, date_format)
+    # Try parsing the target date as "Month Year" (e.g., "Dec 2025") or "YYYY-MM" or "YYYY-MM-DD"
+    try:
+        target_date = datetime.strptime(target_date_str, "%B %Y")  # Try "December 2025" format (full month name)
+    except ValueError:
+        try:
+            target_date = datetime.strptime(target_date_str, "%b %Y")  # Try "Dec 2025" format (abbreviated month name)
+        except ValueError:
+            try:
+                target_date = datetime.strptime(target_date_str, "%Y-%m")  # Try "YYYY-MM" format
+            except ValueError as e:
+                print(e)
+                target_date = datetime.strptime(target_date_str, "%Y-%m-%d")  # Fallback to "YYYY-MM-DD" format
 
     # Calculate the difference in months
     months = (target_date.year - current_date.year) * 12 + (target_date.month - current_date.month)
     
     return months
 
+def standardize_score(english_test,english_test_score:float):
+    if english_test and english_test_score:
+        if english_test == "IELTS":
+            # IELTS: Original scale 0-9
+            return 1 + (english_test_score - 0) * (10 - 1) / (9 - 0)
+        elif english_test == "TOEFL":
+            # TOEFL: Original scale 0-120
+            return 1 + (english_test_score - 0) * (10 - 1) / (120 - 0)
+        else:
+            return None  # Handle unexpected test types
+    else:
+        return None
+    
+
 def match_features_to_model_columns(features):
+
+    proficiency_test_score = float(features.get('Proficiency Test Actual Score').strip()) if features.get('Proficiency Test Actual Score') else None
 
     feature_dict = {
         "student_country": [features.get('Country of Residence')],
@@ -287,13 +325,13 @@ def match_features_to_model_columns(features):
         "intake": [get_intake_with_year(features.get('Intake/Start Date'))],
         "budget": [features.get('Budget for Tuition and Living Expenses')],
         "english_test": [features.get('Proficiency Test')],
-        "english_test_score": [features.get('Proficiency Test Score')],
+        "english_test_score": [features.get('Proficiency Test Actual Score')],
         "time_to_study": [months_between_dates(features.get('Intake/Start Date'))],
         "intro_source": [features.get('How do you know about us?')],
         "app_used": ["No"],
         "sponsor": [features.get('Sponsor/Scholarship Request')],
         "event_attended": ["No"],
-        "standardized_test_Score": [features.get('Proficiency Test Score')]  # New feature
+        "standardized_test_Score": [standardize_score(features.get('Proficiency Test'),proficiency_test_score)]
     }
 
 
@@ -362,6 +400,29 @@ def store_prediction(features,source,source_data,email, prediction):
     Predictions_table.put_item(Item=item)
     logging.info(f"Stored Prediction ID: {prediction_id}")
 
+def match_featuers_for_dynamodb(features):
+    data = {
+        "name": features.get("name"),
+        "phone_number": features.get("phone_number"),
+        "preferred_university":features.get("preferred_university"),
+        "sponsor":features.get("sponsor"),
+        "country_of_residence":features.get("student_country"),
+        "proficiency_test":features.get("english_test"),
+        "proficiency_test_score":features.get("english_test_score"),
+        "highest_qualification":features.get("highest_qualification"),
+        "field_of_study":features.get("area_of_study"),
+        "desired_country":features.get("destination_country"),
+        "budget(":features.get("budget"),
+        "start_date":features.get("intake"),
+        "how_you_know":features.get("intro_source"),
+        "preferred_contact_time":features.get("preferred_contact_time"),
+        "email_body":features.get("email_body")
+    }
+
+    return data
+
+    
+
 def lambda_handler(event, context):
 
     try:
@@ -371,6 +432,10 @@ def lambda_handler(event, context):
             message = json.loads(json.loads(record['body'])['Message'])
             logging.info(f'Received message: {message}')
 
+        # for i in [1]:
+            
+        #     message = json.loads("{\"email_body\": \"Hi, I am Emily Roberts from the United Kingdom. I plan to study Data Analytics in Canada starting December 2025.\\nI completed my undergraduate degree in Business Administration and am seeking financial aid. My TOEFL score is 110.\\nYou can reach me at +447911123456. Could you provide me with details about the application process?\", \"email\": \"test_user8@gmail.com\"}")
+                       
             email = message.get('email_body')
             intent = predict_intent(email)
             if intent == 'Study Abroad Inquiry':
@@ -391,7 +456,9 @@ def lambda_handler(event, context):
                 # Convert dictionary to DataFrame
                 input_df = pd.DataFrame(data_dict)
 
-                # Transform the input data using the preprocessor
+                logging.info("Transform data")
+
+                # Transform the input data using the preprocessorMatching feature
                 input_transformed = preprocessor.transform(input_df)
 
                 logging.info("Prediction Started")
@@ -410,7 +477,13 @@ def lambda_handler(event, context):
 
                 logging.info("Storing prediction")
 
-                store_prediction(features,'Email submission',message,message.get('email'),prediction)
+                data_dict['name'] = features.get('Name')
+                data_dict['phone_number'] = features.get('Phone Number')
+                data_dict['email_body'] = email
+
+                data_dict = match_featuers_for_dynamodb(data_dict)
+
+                store_prediction(features,'Email submission',data_dict,message.get('email'),prediction)
 
                 logging.info("prediction stored")
 
@@ -420,69 +493,4 @@ def lambda_handler(event, context):
     except Exception as error:
         logging.info("Exception raised")
         logging.error(error)
-
-
-# def handler():
-
-    
-#     message = {"email_body":"""Hello, my name is Mark Thompson. I am currently residing in the United States and planning to pursue a Master's in Data Science in Australia.
-#     I have completed my bachelor's in Computer Science and will be starting my studies in Fall 2025. My phone number is +1212555 9876.
-#     Could you please guide me regarding the scholarship opportunities available? I have scored 105 in GMAT exam.""","email":"user1@gmaik.com"}
-
-#     # Access specific attributes
-        
-#     email = message.get('email_body')
-
-#     source= 'email'
-
-#     if source == "email":
-#         intent = predict_intent(email)
-#         print(intent)
-#         if intent == 'Study Abroad Inquiry':
-
-#             # print("Intent")
-            
-            
-#             doc = nlp(email)
-
-#             print("Extracting features")
-#             features= extract_email_features(email,doc)
-
-#             print(features)
-
-#             print("Downloading models")
-#             xgboost_model,preprocessor =  download_models()
-
-#             print("Matching features")
-#             data_dict = match_features_to_model_columns(features)
-#             print(data_dict)
-            
-#             # Convert dictionary to DataFrame
-#             input_df = pd.DataFrame(data_dict)
-
-#             # Transform the input data using the preprocessor
-#             input_transformed = preprocessor.transform(input_df)
-
-#             print("Prediction")
-#             # Get prediction from the model
-#             # prediction = xgboost_model.predict(input_transformed)
-
-#             # Predict probability
-#             probabilities = xgboost_model.predict_proba(input_transformed)[:, 1]  # Probability of class 1
-
-#             prob = probabilities[:10]
-
-#             prediction = "Low-Priority" if prob < 0.30 else "Priority" if prob <= 0.70 else "High-Priority"
-
-#             # Print the result
-#             print("Predicted Target:", prediction)
-
-#             print("Storing prediction")
-
-#             store_prediction(features,message.get('email'),prediction)
-
-#             print("prediction stored")
-    
-#     else:
-#         print(f"Unknown source - {source}")
-    
+        raise Exception

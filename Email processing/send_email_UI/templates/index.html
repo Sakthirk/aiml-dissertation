@@ -150,10 +150,12 @@
             <div class="mb-3">
                 <label class="form-label">Filter by Email:</label>
                 <select class="form-control" id="emailFilter" onchange="fetchSubmissions()">
-
                     <option value="all">All</option>
                 </select>
             </div>
+            <!-- <div class="mb-3">
+                <button class="btn btn-info" onclick="downloadCSV()">Download CSV</button>
+            </div> -->
 
             <table class="table table-bordered">
                 <thead>
@@ -176,9 +178,10 @@
                         <th>Preferred Contact Time</th>
                         <th>Prediction</th>
                         <th>Timestamp</th>
+                        <th>Actual Priority</th>
                     </tr>
                 </thead>
-                <tbody id="submissionsTable">
+                <tbody id="submissionsTable">                   
                 </tbody>
             </table>
 
@@ -196,6 +199,59 @@
         let currentPage = 1;
         let pageSize = 5;
         let allData = [];
+
+        // function downloadCSV() {            
+        //     if (allData.length === 0) {
+        //         alert("No data to download.");
+        //         return;
+        //     }
+
+        //     let csvContent = "data:text/csv;charset=utf-8,";
+        //     let headers = Object.keys(allData[0]).join(",") + "\n";
+        //     csvContent += headers;
+
+        //     allData.forEach(row => {
+        //         let values = Object.values(row).map(value => 
+        //             typeof value === "object" && value !== null ? JSON.stringify(value) : value
+        //         ).join(",");
+                
+        //         csvContent += values + "\n";
+        //     });
+
+        //     let encodedUri = encodeURI(csvContent);
+        //     let link = document.createElement("a");
+        //     link.setAttribute("href", encodedUri);
+        //     link.setAttribute("download", "submissions.csv");
+        //     document.body.appendChild(link);
+        //     link.click();
+        //     document.body.removeChild(link);
+        // }
+
+        function updatePriority(button) {
+            let row = button.closest("tr"); 
+            let id = row.dataset.id; // Get the Id from data attribute
+            let newPriority = row.querySelector(".priority-dropdown").value;
+
+            console.log("Updating ID:", id, "to Priority:", newPriority);
+
+            // Make an API call to update the priority in DynamoDB
+            fetch('/update-priority', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ id: id, priority: newPriority })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert("Priority updated successfully!");
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
+
 
         function submitForm() {
             let formData = new URLSearchParams(new FormData(document.getElementById("formSubmission")));
@@ -307,6 +363,7 @@
                         <td>${sourceData.preferred_contact_time || ''}</td>
                         <td>${item.prediction || ''}</td>
                         <td>${item.timestamp || ''}</td>
+                        
                     </tr>
                 `;
                 tableBody.innerHTML += row;

@@ -3,7 +3,7 @@ import boto3
 import io
 import pandas as pd
 import json
-import xgboost
+# import xgboost
 from datetime import datetime
 from decimal import Decimal
 import numpy as np

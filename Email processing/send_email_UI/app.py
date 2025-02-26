@@ -7,6 +7,9 @@ app = Flask(__name__)
 sns_client = boto3.client('sns', region_name="us-east-1")
 SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:337909783829:customer-segmentation-topic"
 
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table('Predictions')
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -51,6 +54,23 @@ def submit_form():
         return jsonify({"success": False, "error": str(e)})
 
 
+@app.route('/update-priority', methods=['POST'])
+def update_priority():
+    data = request.json
+    item_id = data.get('id')
+    new_priority = data.get('priority')
+
+    if not item_id or not new_priority:
+        return jsonify({'error': 'Missing data'}), 400
+
+    # Update item in DynamoDB
+    response = table.update_item(
+        Key={'Id': item_id},
+        UpdateExpression='SET actual_priority = :priority',
+        ExpressionAttributeValues={':priority': new_priority}
+    )
+
+    return jsonify({'message': 'Priority updated successfully'})
 
 @app.route('/send_email', methods=['POST'])
 def send_email():
@@ -80,8 +100,7 @@ def send_email():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
-dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table('Predictions')
+
 
 @app.route('/get_emails', methods=['GET'])
 def get_emails():
@@ -101,6 +120,8 @@ def get_submissions():
     else:
         response = table.scan()  # No filter, get all records
 
+    print(jsonify(response.get("Items", [])))
+    
     return jsonify(response.get("Items", []))
 
 if __name__ == '__main__':
