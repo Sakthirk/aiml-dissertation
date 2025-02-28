@@ -2,7 +2,7 @@ name: AIML Dissertation CI/CD Pipeline
 
 on:
   push:
-    branches: [dev]
+    branches: [develop]
 
 jobs:
   lint:
