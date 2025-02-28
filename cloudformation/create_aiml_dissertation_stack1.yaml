@@ -148,11 +148,11 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - "sns:CreateTopic"
-                  - "sqs:CreateQueue"
-                  - "lambda:CreateFunction"
-                  - "lambda:InvokeFunction"
-                  - "iam:PassRole"
+                  - "sns:*"
+                  - "sqs:*"
+                  - "lambda:*"
+                  - "lambda:*"
+                  - "iam:*"
                   - "cloudformation:*"
                 Resource: "*"
 

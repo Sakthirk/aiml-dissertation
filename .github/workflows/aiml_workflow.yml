@@ -58,11 +58,11 @@ jobs:
             chmod +x prediction_docker/prediction_docker.sh
             chmod +x training_docker/training_docker.sh
 
-    #   - name: Create and deploy prediction docker
-    #     run:  sh prediction_docker/prediction_docker.sh
+      - name: Create and deploy prediction docker
+        run:  sh prediction_docker/prediction_docker.sh
       
-    #   - name: Create and deploy training docker
-    #     run:  sh training_docker/training_docker.sh
+      - name: Create and deploy training docker
+        run:  sh training_docker/training_docker.sh
 
       - name: Install Boto3 dependencies
         run: |
