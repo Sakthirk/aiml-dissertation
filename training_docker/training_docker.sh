@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -e 
 
 # Move into the correct directory
