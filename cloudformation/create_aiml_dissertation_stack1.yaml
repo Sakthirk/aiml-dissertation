@@ -91,7 +91,7 @@ Resources:
       PackageType: 'Image'
       Role: !GetAtt LambdaExecutionRole.Arn
       Code:
-        ImageUri: '337909783829.dkr.ecr.us-east-1.amazonaws.com/aiml-dissertation-customer-segmentation-model-training-docker:latest'
+        ImageUri: '337909783829.dkr.ecr.us-east-1.amazonaws.com/aiml-dissertation-model-training-docker:latest'
 
   # SNS Topic Subscription to SQS Queues
   EmailQueueSubscription:
