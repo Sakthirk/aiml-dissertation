@@ -58,11 +58,15 @@ jobs:
             chmod +x prediction_docker/prediction_docker.sh
             chmod +x training_docker/training_docker.sh
 
-      - name: Create and deploy prediction docker
-        run:  sh prediction_docker/prediction_docker.sh
+    #   - name: Create and deploy prediction docker
+    #     run:  sh prediction_docker/prediction_docker.sh
       
-      - name: Create and deploy training docker
-        run:  sh training_docker/training_docker.sh
+    #   - name: Create and deploy training docker
+    #     run:  sh training_docker/training_docker.sh
+
+      - name: Install Boto3 dependencies
+        run: |
+          pip install boto3
     
       - name: Create Dynamo DB tables
         run: |
@@ -81,6 +85,11 @@ jobs:
         with:
           python-version: "3.10"
 
+      - name: Install AWS CLI
+        run: |
+            sudo apt-get update
+            sudo apt-get install -y awscli
+
       - name: Configure AWS credentials
         if: success()
         uses: aws-actions/configure-aws-credentials@v2
@@ -90,7 +99,6 @@ jobs:
             aws-region: us-east-1  # Change to your AWS region
 
       - name: Deploy CloudFormation template
-        if: success()  # Run only if credentials are configured successfully
         run: |
             aws cloudformation deploy \
             --template-file cloudformation/create_aiml_dissertation_stack1.yaml \
