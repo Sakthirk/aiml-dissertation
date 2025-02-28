@@ -1,0 +1,87 @@
+name: AIML Dissertation CI/CD Pipeline
+
+on:
+  push:
+    branches: [dev]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Lint with flake8
+        run: |
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.venv
+          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --exclude=.venv
+
+  prepare:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.10"
+
+      - name: Configure AWS credentials
+        if: success()  # Run only if the setup script succeeds
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1  # Change to your AWS region
+
+      - name: Create and deploy dockers
+        run: |
+          sh prepare_dockers/model_training_docker.sh
+          sh prepare_dockers/prediction_docker.sh
+    
+      - name: Create Dynamo DB tables
+        run: |
+          python DynamoDB/create_tables.py
+
+
+  deploy:
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.10"
+
+      - name: Configure AWS credentials
+        if: success()  # Run only if the setup script succeeds
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+            aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            aws-region: us-east-1  # Change to your AWS region
+
+      - name: Deploy CloudFormation template
+        if: success()  # Run only if credentials are configured successfully
+        run: |
+            aws cloudformation deploy \
+            --template-file cloudformation\create_aiml_dissertation_stack1.yaml \
+            --stack-name aiml-dissertation-stack-1 \
+            --capabilities CAPABILITY_NAMED_IAM
