@@ -129,6 +129,33 @@ Resources:
       FunctionName: !Ref FormProcessorFunction
       Enabled: true
 
+  # IAM Role for CloudFormation Execution
+  MyExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: AIMLCloudFormationExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: CloudFormationPermissions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "sns:CreateTopic"
+                  - "sqs:CreateQueue"
+                  - "lambda:CreateFunction"
+                  - "lambda:InvokeFunction"
+                  - "iam:PassRole"
+                  - "cloudformation:*"
+                Resource: "*"
+
   # IAM Role for Lambda
   LambdaExecutionRole:
     Type: 'AWS::IAM::Role'
