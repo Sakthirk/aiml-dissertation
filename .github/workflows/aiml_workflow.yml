@@ -54,15 +54,16 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1  # Change to your AWS region
 
-      - name: Create and deploy prediction docker
-        run:  sh prediction_docker/prediction_docker.sh
+    #   - name: Create and deploy prediction docker
+    #     run:  sh prediction_docker/prediction_docker.sh
 
-      - name: Reconfigure AWS credentials before training docker
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+    #   - name: Reconfigure AWS credentials before training docker
+    #     if: success() 
+    #     uses: aws-actions/configure-aws-credentials@v2
+    #     with:
+    #       aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+    #       aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    #       aws-region: us-east-1
       
       
       - name: Create and deploy training docker
