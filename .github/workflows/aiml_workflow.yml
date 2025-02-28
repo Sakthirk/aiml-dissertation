@@ -66,12 +66,12 @@ jobs:
     #       aws-region: us-east-1
       
       
-    #   - name: Create and deploy training docker
-    #     run:  sh training_docker/training_docker.sh
+      - name: Create and deploy training docker
+        run:  sh training_docker/training_docker.sh
     
-    #   - name: Create Dynamo DB tables
-    #     run: |
-    #       python DynamoDB/create_tables.py
+      - name: Create Dynamo DB tables
+        run: |
+          python DynamoDB/create_tables.py
 
 
   deploy:
