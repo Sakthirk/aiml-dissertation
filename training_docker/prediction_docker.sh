@@ -1,11 +1,16 @@
 #!/bin/bash
 
+set -e 
+
+# Move into the correct directory
+cd "$(dirname "$0")"
+
+
 # Configuration
 AWS_REGION="us-east-1"
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
-ECR_REPO_NAME="email-processing-docker"
+ECR_REPO_NAME="aiml-dissertation-customer-segmentation-model-training-docker"
 IMAGE_TAG="latest"
-LAMBDA_FUNCTION_NAME="TrainModelLambda"
 ROLE_ARN="arn:aws:iam::$AWS_ACCOUNT_ID:role/LambdaExecutionRole"
 
 
@@ -40,25 +45,5 @@ docker tag $ECR_REPO_NAME:latest $ECR_IMAGE_URI
 # Step 5: Push the Docker Image to ECR
 echo "Pushing Docker image to ECR..."
 docker push $ECR_IMAGE_URI
-
-# # Step 6: Check if Lambda Function Exists
-# echo "Checking if Lambda function exists..."
-# aws lambda get-function --function-name $LAMBDA_FUNCTION_NAME --region $AWS_REGION >/dev/null 2>&1
-
-# if [ $? -ne 0 ]; then
-#   echo "Lambda function does not exist. Creating..."
-#   aws lambda create-function \
-#     --function-name $LAMBDA_FUNCTION_NAME \
-#     --package-type Image \
-#     --code ImageUri=$ECR_IMAGE_URI \
-#     --role $ROLE_ARN \
-#     --region $AWS_REGION
-# else
-#   echo "Lambda function exists. Updating to new image..."
-#   aws lambda update-function-code \
-#     --function-name $LAMBDA_FUNCTION_NAME \
-#     --image-uri $ECR_IMAGE_URI \
-#     --region $AWS_REGION
-# fi
 
 echo "Deployment complete!"
