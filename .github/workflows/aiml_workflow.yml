@@ -49,9 +49,7 @@ jobs:
           aws-region: us-east-1  # Change to your AWS region
 
       - name: Create and deploy dockers
-        run: |
-          sh prepare_dockers/model_training_docker.sh
-          sh prepare_dockers/prediction_docker.sh
+        run:  sh prediction_docker/prediction_docker.sh
     
       - name: Create Dynamo DB tables
         run: |
