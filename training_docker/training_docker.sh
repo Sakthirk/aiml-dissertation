@@ -8,9 +8,8 @@ cd "$(dirname "$0")"
 # Configuration
 AWS_REGION="us-east-1"
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
-ECR_REPO_NAME="aiml-dissertation-customer-segmentation-model-training-docker"
+ECR_REPO_NAME="aiml-dissertation-model-training-docker"
 IMAGE_TAG="latest"
-ROLE_ARN="arn:aws:iam::$AWS_ACCOUNT_ID:role/LambdaExecutionRole"
 
 
 echo "AWS_ACCOUNT_ID: $AWS_ACCOUNT_ID"
