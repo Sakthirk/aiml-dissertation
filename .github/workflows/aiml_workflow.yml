@@ -51,9 +51,9 @@ jobs:
       - name: Create and deploy dockers
         run:  sh prediction_docker/prediction_docker.sh
     
-    #   - name: Create Dynamo DB tables
-    #     run: |
-    #       python DynamoDB/create_tables.py
+      - name: Create Dynamo DB tables
+        run: |
+          python DynamoDB/create_tables.py
 
 
   deploy:
