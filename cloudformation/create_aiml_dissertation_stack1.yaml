@@ -81,6 +81,18 @@ Resources:
       Code:
         ImageUri: '337909783829.dkr.ecr.us-east-1.amazonaws.com/aiml-dissertation-customer-segmentation-docker:latest'
 
+  # Lambda Function for Email Processing
+  ModelTrainingFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: 'model-training-lambda'
+      Timeout: 900  # Timeout set to 2 minutes
+      MemorySize: 512
+      PackageType: 'Image'
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ImageUri: '337909783829.dkr.ecr.us-east-1.amazonaws.com/aiml-dissertation-customer-segmentation-model-training-docker:latest'
+
   # SNS Topic Subscription to SQS Queues
   EmailQueueSubscription:
     Type: 'AWS::SNS::Subscription'
