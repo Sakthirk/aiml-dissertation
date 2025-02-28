@@ -41,7 +41,7 @@ jobs:
           python-version: "3.10"
 
       - name: Configure AWS credentials
-        if: success()  # Run only if the setup script succeeds
+        if: success()  
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -71,7 +71,7 @@ jobs:
           python-version: "3.10"
 
       - name: Configure AWS credentials
-        if: success()  # Run only if the setup script succeeds
+        if: success()
         uses: aws-actions/configure-aws-credentials@v2
         with:
             aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
