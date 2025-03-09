@@ -22,13 +22,7 @@ Resources:
       QueueName: 'form-processor-queue'
       VisibilityTimeout: 180
 
-  ModelTrainingQueue:
-    Type: 'AWS::SQS::Queue'
-    Properties:
-      QueueName: 'model-training-queue'
-      VisibilityTimeout: 900
-
-  # IAM Policies for SQS to allow SNS to send messages
+  # IAM Policy for SQS to allow SNS to send messages
   EmailProcessingQueuePolicy:
     Type: 'AWS::SQS::QueuePolicy'
     Properties:
@@ -63,52 +57,37 @@ Resources:
               ArnEquals:
                 aws:SourceArn: !Ref NotificationTopic
 
-  ModelTrainingQueuePolicy:
-    Type: 'AWS::SQS::QueuePolicy'
-    Properties:
-      Queues:
-        - !Ref ModelTrainingQueue
-      PolicyDocument:
-        Version: '2012-10-17'
-        Id: 'Allow-SNS-Publish'
-        Statement:
-          - Effect: 'Allow'
-            Principal: '*'
-            Action: 'SQS:SendMessage'
-            Resource: !GetAtt ModelTrainingQueue.Arn
-            Condition:
-              ArnEquals:
-                aws:SourceArn: !Ref NotificationTopic
-
-  # Lambda Functions
+  # Lambda Function for Form Processing (Containerized)
   EmailProcessorFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
       FunctionName: 'email-processor-lambda'
-      Timeout: 120
+      Timeout: 120  # Timeout set to 2 minutes
       MemorySize: 512
       PackageType: 'Image'
       Role: !GetAtt LambdaExecutionRole.Arn
       Code:
         ImageUri: '337909783829.dkr.ecr.us-east-1.amazonaws.com/aiml-dissertation-customer-segmentation-docker:latest'
 
+  # Lambda Function for Email Processing
   FormProcessorFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
       FunctionName: 'form-processor-lambda'
-      Timeout: 120
+      Timeout: 120  # Timeout set to 2 minutes
       MemorySize: 512
       PackageType: 'Image'
       Role: !GetAtt LambdaExecutionRole.Arn
       Code:
         ImageUri: '337909783829.dkr.ecr.us-east-1.amazonaws.com/aiml-dissertation-customer-segmentation-docker:latest'
 
+  # Lambda Function for Email Processing
   ModelTrainingFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
       FunctionName: 'model-training-lambda'
-      Timeout: 900
-      MemorySize: 1024
+      Timeout: 900  # Timeout set to 2 minutes
+      MemorySize: 512
       PackageType: 'Image'
       Role: !GetAtt LambdaExecutionRole.Arn
       Code:
@@ -133,15 +112,6 @@ Resources:
       FilterPolicy:
         Source: ["form"]
 
-  ModelTrainingQueueSubscription:
-    Type: 'AWS::SNS::Subscription'
-    Properties:
-      TopicArn: !Ref NotificationTopic
-      Protocol: 'sqs'
-      Endpoint: !GetAtt ModelTrainingQueue.Arn
-      FilterPolicy:
-        Source: ["model-training"]
-
   # Lambda Permissions to SQS
   EmailLambdaSQSPermission:
     Type: 'AWS::Lambda::EventSourceMapping'
@@ -159,15 +129,34 @@ Resources:
       FunctionName: !Ref FormProcessorFunction
       Enabled: true
 
-  ModelTrainingLambdaSQSPermission:
-    Type: 'AWS::Lambda::EventSourceMapping'
+  # IAM Role for CloudFormation Execution
+  MyExecutionRole:
+    Type: AWS::IAM::Role
     Properties:
-      BatchSize: 1
-      EventSourceArn: !GetAtt ModelTrainingQueue.Arn
-      FunctionName: !Ref ModelTrainingFunction
-      Enabled: true
+      RoleName: AIMLCloudFormationExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: CloudFormationPermissions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "sns:*"
+                  - "sqs:*"
+                  - "lambda:*"
+                  - "lambda:*"
+                  - "iam:*"
+                  - "cloudformation:*"
+                Resource: "*"
 
-  # Update IAM Role for Lambda to include ModelTrainingQueue permissions
+  # IAM Role for Lambda
   LambdaExecutionRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -197,7 +186,6 @@ Resources:
                 Resource:
                   - !GetAtt EmailProcessingQueue.Arn
                   - !GetAtt FormProcessingQueue.Arn
-                  - !GetAtt ModelTrainingQueue.Arn
               - Effect: 'Allow'
                 Action:
                   - 's3:GetObject'
