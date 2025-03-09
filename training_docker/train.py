@@ -9,7 +9,18 @@ import boto3
 import numpy as np
 from io import StringIO
 import joblib
+import logging
+import sys
 
+# Configure logging
+logger = logging.getLogger()
+if not logger.hasHandlers():
+    handler = logging.StreamHandler(sys.stdout)  # Force logs to stdout
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
+logger.setLevel(logging.INFO)  # Force debug level
 
 s3 = boto3.client('s3')
 
@@ -114,17 +125,17 @@ def train_and_upload():
     
     training_data_s3_key = "training_data/mockup_labeled_data.csv"  # Replace with the actual S3 key (file path)
 
-    print('Read data from s3')
+    logger.info('Read data from s3')
 
     # Step 1: Read data
     data = read_data(s3_bucket,training_data_s3_key)
 
-    print('Pre-processing the data')
+    logger.info('Pre-processing the data')
     
     # Step 2: Pre-processing
     data = pre_processing(data)
 
-    print('Pre-processing completed')
+    logger.info('Pre-processing completed')
 
     # Step 3: Define feature columns (X) and target column (y)
     X = data.drop('target', axis=1)  # Features
@@ -190,23 +201,38 @@ def train_and_upload():
         eval_metric='logloss'
     )
     
-    print('Fit the model')
+    logger.info('Fit the model')
 
     best_xgb_model.fit(X_train, y_train)
 
-    # Save the trained model to a joblib file
-    joblib.dump(best_xgb_model, "xgb_model.joblib")
+    # Step 9: Evaluate model performance
+    y_pred = best_xgb_model.predict(X_test)
+    accuracy = accuracy_score(y_test, y_pred)
 
-    # Save the preprocessor (so you can use it later for inference)
-    joblib.dump(preprocessor, "preprocessor.joblib")
+    logger.info(f'Model accuracy: {accuracy:.4f}')
 
-    print('Upload file to s3')
-    upload_file("xgb_model.joblib",s3_bucket, "trained_model/xgb_model.joblib")
-    upload_file("preprocessor.joblib",s3_bucket, "trained_model/preprocessor.joblib")
+    # Define accuracy threshold
+    accuracy_threshold = 0.85  # Adjust as needed
+
+    if accuracy >= accuracy_threshold:
+        logger.info(f'Accuracy meets the threshold ({accuracy_threshold}), uploading model to S3.')
+
+        # Save the trained model to a joblib file
+        joblib.dump(best_xgb_model, "xgb_model.joblib")
+
+        # Save the preprocessor
+        joblib.dump(preprocessor, "preprocessor.joblib")
+
+        logger.info('Upload file to s3')
+        upload_file("xgb_model.joblib", s3_bucket, "trained_model/xgb_model.joblib")
+        upload_file("preprocessor.joblib", s3_bucket, "trained_model/preprocessor.joblib")
+    else:
+        logger.info(f'Accuracy ({accuracy:.4f}) is below the threshold ({accuracy_threshold}), skipping model upload.')
+
 
 def lambda_handler(event, context):
-    print("Training started")
+    logger.info("Training started")
     train_and_upload()
-    print("Training Completed")
+    logger.info("Training Completed")
 
 

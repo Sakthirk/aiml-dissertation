@@ -28,7 +28,7 @@ Resources:
       QueueName: 'model-training-queue'
       VisibilityTimeout: 900
 
-  # IAM Policies for SQS to allow SNS to send messages
+  # IAM Policy for SQS to allow SNS to send messages
   EmailProcessingQueuePolicy:
     Type: 'AWS::SQS::QueuePolicy'
     Properties:
@@ -76,9 +76,6 @@ Resources:
             Principal: '*'
             Action: 'SQS:SendMessage'
             Resource: !GetAtt ModelTrainingQueue.Arn
-            Condition:
-              ArnEquals:
-                aws:SourceArn: !Ref NotificationTopic
 
   # Lambda Functions
   EmailProcessorFunction:
@@ -108,11 +105,42 @@ Resources:
     Properties:
       FunctionName: 'model-training-lambda'
       Timeout: 900
-      MemorySize: 1024
+      MemorySize: 512
       PackageType: 'Image'
       Role: !GetAtt LambdaExecutionRole.Arn
       Code:
         ImageUri: '337909783829.dkr.ecr.us-east-1.amazonaws.com/aiml-dissertation-model-training-docker:latest'
+
+  ModelDriftDetectionFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: 'model-drift-detection-lambda'
+      Timeout: 300
+      MemorySize: 512
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: 'python3.9'
+      Handler: 'app.lambda_handler'
+      Code:
+        S3Bucket: 'aiml-dissertation'
+        S3Key: 'lambda/model-drift-detection-lambda.zip'
+
+  ModelDriftDetectionSchedule:
+    Type: 'AWS::Events::Rule'
+    Properties:
+      Name: 'ModelDriftDetectionWeeklyTrigger'
+      ScheduleExpression: 'cron(0 1 ? * SUN *)'
+      State: 'ENABLED'
+      Targets:
+        - Arn: !GetAtt ModelDriftDetectionFunction.Arn
+          Id: 'ModelDriftDetectionTarget'
+
+  ModelDriftDetectionPermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref ModelDriftDetectionFunction
+      Principal: 'events.amazonaws.com'
+      SourceArn: !GetAtt ModelDriftDetectionSchedule.Arn
 
   # SNS Topic Subscription to SQS Queues
   EmailQueueSubscription:
@@ -132,15 +160,6 @@ Resources:
       Endpoint: !GetAtt FormProcessingQueue.Arn
       FilterPolicy:
         Source: ["form"]
-
-  ModelTrainingQueueSubscription:
-    Type: 'AWS::SNS::Subscription'
-    Properties:
-      TopicArn: !Ref NotificationTopic
-      Protocol: 'sqs'
-      Endpoint: !GetAtt ModelTrainingQueue.Arn
-      FilterPolicy:
-        Source: ["model-training"]
 
   # Lambda Permissions to SQS
   EmailLambdaSQSPermission:
@@ -162,24 +181,26 @@ Resources:
   ModelTrainingLambdaSQSPermission:
     Type: 'AWS::Lambda::EventSourceMapping'
     Properties:
-      BatchSize: 1
+      BatchSize: 10
       EventSourceArn: !GetAtt ModelTrainingQueue.Arn
       FunctionName: !Ref ModelTrainingFunction
       Enabled: true
 
-  # Update IAM Role for Lambda to include ModelTrainingQueue permissions
   LambdaExecutionRole:
     Type: 'AWS::IAM::Role'
     Properties:
+      RoleName: 'LambdaExecutionRole'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
           - Effect: 'Allow'
             Principal:
-              Service: 'lambda.amazonaws.com'
-            Action: 'sts:AssumeRole'
+              Service: 
+                - 'lambda.amazonaws.com'
+            Action: 
+              - 'sts:AssumeRole'
       Policies:
-        - PolicyName: 'lambda-execution-policy'
+        - PolicyName: 'LambdaExecutionPolicy'
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
@@ -194,20 +215,8 @@ Resources:
                   - 'sqs:ReceiveMessage'
                   - 'sqs:DeleteMessage'
                   - 'sqs:GetQueueAttributes'
-                Resource:
-                  - !GetAtt EmailProcessingQueue.Arn
-                  - !GetAtt FormProcessingQueue.Arn
-                  - !GetAtt ModelTrainingQueue.Arn
+                Resource: '*'
               - Effect: 'Allow'
                 Action:
                   - 's3:GetObject'
                 Resource: 'arn:aws:s3:::aiml-dissertation/*'
-              - Effect: 'Allow'
-                Action:
-                  - 'dynamodb:PutItem'
-                  - 'dynamodb:UpdateItem'
-                  - 'dynamodb:DeleteItem'
-                  - 'dynamodb:GetItem'
-                  - 'dynamodb:Scan'
-                  - 'dynamodb:Query'
-                Resource: 'arn:aws:dynamodb:*:*:table/*'
