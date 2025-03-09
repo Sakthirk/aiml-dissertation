@@ -22,6 +22,12 @@ Resources:
       QueueName: 'form-processor-queue'
       VisibilityTimeout: 180
 
+  ModelTrainingQueue:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      QueueName: 'model-training-queue'
+      VisibilityTimeout: 900
+
   # IAM Policy for SQS to allow SNS to send messages
   EmailProcessingQueuePolicy:
     Type: 'AWS::SQS::QueuePolicy'
@@ -57,41 +63,84 @@ Resources:
               ArnEquals:
                 aws:SourceArn: !Ref NotificationTopic
 
-  # Lambda Function for Form Processing (Containerized)
+  ModelTrainingQueuePolicy:
+    Type: 'AWS::SQS::QueuePolicy'
+    Properties:
+      Queues:
+        - !Ref ModelTrainingQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Id: 'Allow-SNS-Publish'
+        Statement:
+          - Effect: 'Allow'
+            Principal: '*'
+            Action: 'SQS:SendMessage'
+            Resource: !GetAtt ModelTrainingQueue.Arn
+
+  # Lambda Functions
   EmailProcessorFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
       FunctionName: 'email-processor-lambda'
-      Timeout: 120  # Timeout set to 2 minutes
+      Timeout: 120
       MemorySize: 512
       PackageType: 'Image'
       Role: !GetAtt LambdaExecutionRole.Arn
       Code:
         ImageUri: '337909783829.dkr.ecr.us-east-1.amazonaws.com/aiml-dissertation-customer-segmentation-docker:latest'
 
-  # Lambda Function for Email Processing
   FormProcessorFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
       FunctionName: 'form-processor-lambda'
-      Timeout: 120  # Timeout set to 2 minutes
+      Timeout: 120
       MemorySize: 512
       PackageType: 'Image'
       Role: !GetAtt LambdaExecutionRole.Arn
       Code:
         ImageUri: '337909783829.dkr.ecr.us-east-1.amazonaws.com/aiml-dissertation-customer-segmentation-docker:latest'
 
-  # Lambda Function for Email Processing
   ModelTrainingFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
       FunctionName: 'model-training-lambda'
-      Timeout: 900  # Timeout set to 2 minutes
+      Timeout: 900
       MemorySize: 512
       PackageType: 'Image'
       Role: !GetAtt LambdaExecutionRole.Arn
       Code:
         ImageUri: '337909783829.dkr.ecr.us-east-1.amazonaws.com/aiml-dissertation-model-training-docker:latest'
+
+  ModelDriftDetectionFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: 'model-drift-detection-lambda'
+      Timeout: 300
+      MemorySize: 512
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: 'python3.9'
+      Handler: 'app.lambda_handler'
+      Code:
+        S3Bucket: 'aiml-dissertation'
+        S3Key: 'lambda/model-drift-detection-lambda.zip'
+
+  ModelDriftDetectionSchedule:
+    Type: 'AWS::Events::Rule'
+    Properties:
+      Name: 'ModelDriftDetectionWeeklyTrigger'
+      ScheduleExpression: 'cron(0 1 ? * SUN *)'
+      State: 'ENABLED'
+      Targets:
+        - Arn: !GetAtt ModelDriftDetectionFunction.Arn
+          Id: 'ModelDriftDetectionTarget'
+
+  ModelDriftDetectionPermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref ModelDriftDetectionFunction
+      Principal: 'events.amazonaws.com'
+      SourceArn: !GetAtt ModelDriftDetectionSchedule.Arn
 
   # SNS Topic Subscription to SQS Queues
   EmailQueueSubscription:
@@ -129,46 +178,29 @@ Resources:
       FunctionName: !Ref FormProcessorFunction
       Enabled: true
 
-  # IAM Role for CloudFormation Execution
-  MyExecutionRole:
-    Type: AWS::IAM::Role
+  ModelTrainingLambdaSQSPermission:
+    Type: 'AWS::Lambda::EventSourceMapping'
     Properties:
-      RoleName: AIMLCloudFormationExecutionRole
-      AssumeRolePolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: cloudformation.amazonaws.com
-            Action: "sts:AssumeRole"
-      Policies:
-        - PolicyName: CloudFormationPermissions
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - "sns:*"
-                  - "sqs:*"
-                  - "lambda:*"
-                  - "lambda:*"
-                  - "iam:*"
-                  - "cloudformation:*"
-                Resource: "*"
+      BatchSize: 10
+      EventSourceArn: !GetAtt ModelTrainingQueue.Arn
+      FunctionName: !Ref ModelTrainingFunction
+      Enabled: true
 
-  # IAM Role for Lambda
   LambdaExecutionRole:
     Type: 'AWS::IAM::Role'
     Properties:
+      RoleName: 'LambdaExecutionRole'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
           - Effect: 'Allow'
             Principal:
-              Service: 'lambda.amazonaws.com'
-            Action: 'sts:AssumeRole'
+              Service: 
+                - 'lambda.amazonaws.com'
+            Action: 
+              - 'sts:AssumeRole'
       Policies:
-        - PolicyName: 'lambda-execution-policy'
+        - PolicyName: 'LambdaExecutionPolicy'
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
@@ -183,19 +215,8 @@ Resources:
                   - 'sqs:ReceiveMessage'
                   - 'sqs:DeleteMessage'
                   - 'sqs:GetQueueAttributes'
-                Resource:
-                  - !GetAtt EmailProcessingQueue.Arn
-                  - !GetAtt FormProcessingQueue.Arn
+                Resource: '*'
               - Effect: 'Allow'
                 Action:
                   - 's3:GetObject'
                 Resource: 'arn:aws:s3:::aiml-dissertation/*'
-              - Effect: 'Allow'
-                Action:
-                  - 'dynamodb:PutItem'
-                  - 'dynamodb:UpdateItem'
-                  - 'dynamodb:DeleteItem'
-                  - 'dynamodb:GetItem'
-                  - 'dynamodb:Scan'
-                  - 'dynamodb:Query'
-                Resource: 'arn:aws:dynamodb:*:*:table/*'

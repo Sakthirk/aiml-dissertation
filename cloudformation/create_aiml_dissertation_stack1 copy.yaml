@@ -1,0 +1,201 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Stack for SNS topic with multiple SQS queues and Lambda consumers'
+
+Resources:
+  # SNS Topic
+  NotificationTopic:
+    Type: 'AWS::SNS::Topic'
+    Properties:
+      DisplayName: 'Customer segmentation Topic'
+      TopicName: 'customer-segmentation-topic'
+
+  # SQS Queues
+  EmailProcessingQueue:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      QueueName: 'email-processing-queue'
+      VisibilityTimeout: 180
+
+  FormProcessingQueue:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      QueueName: 'form-processor-queue'
+      VisibilityTimeout: 180
+
+  # IAM Policy for SQS to allow SNS to send messages
+  EmailProcessingQueuePolicy:
+    Type: 'AWS::SQS::QueuePolicy'
+    Properties:
+      Queues:
+        - !Ref EmailProcessingQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Id: 'Allow-SNS-Publish'
+        Statement:
+          - Effect: 'Allow'
+            Principal: '*'
+            Action: 'SQS:SendMessage'
+            Resource: !GetAtt EmailProcessingQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref NotificationTopic
+
+  FormProcessingQueuePolicy:
+    Type: 'AWS::SQS::QueuePolicy'
+    Properties:
+      Queues:
+        - !Ref FormProcessingQueue
+      PolicyDocument:
+        Version: '2012-10-17'
+        Id: 'Allow-SNS-Publish'
+        Statement:
+          - Effect: 'Allow'
+            Principal: '*'
+            Action: 'SQS:SendMessage'
+            Resource: !GetAtt FormProcessingQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Ref NotificationTopic
+
+  # Lambda Function for Form Processing (Containerized)
+  EmailProcessorFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: 'email-processor-lambda'
+      Timeout: 120  # Timeout set to 2 minutes
+      MemorySize: 512
+      PackageType: 'Image'
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ImageUri: '337909783829.dkr.ecr.us-east-1.amazonaws.com/aiml-dissertation-customer-segmentation-docker:latest'
+
+  # Lambda Function for Email Processing
+  FormProcessorFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: 'form-processor-lambda'
+      Timeout: 120  # Timeout set to 2 minutes
+      MemorySize: 512
+      PackageType: 'Image'
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ImageUri: '337909783829.dkr.ecr.us-east-1.amazonaws.com/aiml-dissertation-customer-segmentation-docker:latest'
+
+  # Lambda Function for Email Processing
+  ModelTrainingFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: 'model-training-lambda'
+      Timeout: 900  # Timeout set to 2 minutes
+      MemorySize: 512
+      PackageType: 'Image'
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ImageUri: '337909783829.dkr.ecr.us-east-1.amazonaws.com/aiml-dissertation-model-training-docker:latest'
+
+  # SNS Topic Subscription to SQS Queues
+  EmailQueueSubscription:
+    Type: 'AWS::SNS::Subscription'
+    Properties:
+      TopicArn: !Ref NotificationTopic
+      Protocol: 'sqs'
+      Endpoint: !GetAtt EmailProcessingQueue.Arn
+      FilterPolicy:
+        Source: ["email"]
+
+  FormQueueSubscription:
+    Type: 'AWS::SNS::Subscription'
+    Properties:
+      TopicArn: !Ref NotificationTopic
+      Protocol: 'sqs'
+      Endpoint: !GetAtt FormProcessingQueue.Arn
+      FilterPolicy:
+        Source: ["form"]
+
+  # Lambda Permissions to SQS
+  EmailLambdaSQSPermission:
+    Type: 'AWS::Lambda::EventSourceMapping'
+    Properties:
+      BatchSize: 10
+      EventSourceArn: !GetAtt EmailProcessingQueue.Arn
+      FunctionName: !Ref EmailProcessorFunction
+      Enabled: true
+
+  FormLambdaSQSPermission:
+    Type: 'AWS::Lambda::EventSourceMapping'
+    Properties:
+      BatchSize: 10
+      EventSourceArn: !GetAtt FormProcessingQueue.Arn
+      FunctionName: !Ref FormProcessorFunction
+      Enabled: true
+
+  # IAM Role for CloudFormation Execution
+  MyExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: AIMLCloudFormationExecutionRole
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudformation.amazonaws.com
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: CloudFormationPermissions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "sns:*"
+                  - "sqs:*"
+                  - "lambda:*"
+                  - "lambda:*"
+                  - "iam:*"
+                  - "cloudformation:*"
+                Resource: "*"
+
+  # IAM Role for Lambda
+  LambdaExecutionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Service: 'lambda.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: 'lambda-execution-policy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: 'Allow'
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: 'arn:aws:logs:*:*:*'
+              - Effect: 'Allow'
+                Action:
+                  - 'sqs:ReceiveMessage'
+                  - 'sqs:DeleteMessage'
+                  - 'sqs:GetQueueAttributes'
+                Resource:
+                  - !GetAtt EmailProcessingQueue.Arn
+                  - !GetAtt FormProcessingQueue.Arn
+              - Effect: 'Allow'
+                Action:
+                  - 's3:GetObject'
+                Resource: 'arn:aws:s3:::aiml-dissertation/*'
+              - Effect: 'Allow'
+                Action:
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:UpdateItem'
+                  - 'dynamodb:DeleteItem'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:Query'
+                Resource: 'arn:aws:dynamodb:*:*:table/*'

@@ -405,7 +405,7 @@ class EmailProcessing:
             "field_of_study":features.get("area_of_study"),
             "desired_country":features.get("destination_country"),
             "budget":features.get("budget"),
-            "start_date":features.get("intake"),
+            "start_date":features.get("Intake/Start Date"),
             "how_you_know":features.get("intro_source"),
             "preferred_contact_time":features.get("preferred_contact_time"),
             "email_body":features.get("email_body")
