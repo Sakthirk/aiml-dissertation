@@ -229,21 +229,21 @@ class EmailProcessing:
             return None
 
         try:
-            date_obj = datetime.strptime(date_str, "%B %Y")  # Try "December 2025" format (full month name)
+            date_obj = datetime.strptime(date_str, "%B %Y")
         except ValueError:
             try:
-                date_obj = datetime.strptime(date_str, "%b %Y")  # Try "Dec 2025" format (abbreviated month name)
+                date_obj = datetime.strptime(date_str, "%b %Y")
             except ValueError:
                 try:
-                    date_obj = datetime.strptime(date_str, "%Y-%m")  # Try "YYYY-MM" format
+                    date_obj = datetime.strptime(date_str, "%Y-%m")
                 except ValueError as e:
                     print(e)
-                    date_obj = datetime.strptime(date_str, "%Y-%m-%d")  # Fallback to "YYYY-MM-DD" format
+                    date_obj = datetime.strptime(date_str, "%Y-%m-%d")
 
 
         month, year = date_obj.month, date_obj.year
 
-        return f"{month} {year}"
+        return date_str
 
     def months_between_dates(self,target_date_str):
 
@@ -253,18 +253,17 @@ class EmailProcessing:
         # Get the current date
         current_date = datetime.today()
 
-        # Try parsing the target date as "Month Year" (e.g., "Dec 2025") or "YYYY-MM" or "YYYY-MM-DD"
         try:
-            target_date = datetime.strptime(target_date_str, "%B %Y")  # Try "December 2025" format (full month name)
+            target_date = datetime.strptime(target_date_str, "%B %Y") 
         except ValueError:
             try:
-                target_date = datetime.strptime(target_date_str, "%b %Y")  # Try "Dec 2025" format (abbreviated month name)
+                target_date = datetime.strptime(target_date_str, "%b %Y") 
             except ValueError:
                 try:
-                    target_date = datetime.strptime(target_date_str, "%Y-%m")  # Try "YYYY-MM" format
+                    target_date = datetime.strptime(target_date_str, "%Y-%m")
                 except ValueError as e:
                     print(e)
-                    target_date = datetime.strptime(target_date_str, "%Y-%m-%d")  # Fallback to "YYYY-MM-DD" format
+                    target_date = datetime.strptime(target_date_str, "%Y-%m-%d")
 
         # Calculate the difference in months
         months = (target_date.year - current_date.year) * 12 + (target_date.month - current_date.month)
@@ -354,8 +353,7 @@ class EmailProcessing:
         
         # Generate unique ID for each prediction
         prediction_id = str(uuid.uuid4())
-        
-        # Get IST timezone
+    
         ist = pytz.timezone("Asia/Kolkata")
 
         # Get current time in UTC
@@ -364,19 +362,18 @@ class EmailProcessing:
         # Convert UTC to IST
         ist_now = utc_now.replace(tzinfo=pytz.utc).astimezone(ist)
 
-        # Format IST time in ISO 8601 format
         timestamp_ist = ist_now.isoformat()
 
         
         item = {
             "id": prediction_id,
-            "email": email,  # New email field
+            "email": email,
             "source":source,
             "source_data":source_data,
-            "features": features,  # Storing all features in a Map
+            "features": features,
             "prediction": prediction,
             "predicted_probability":str(prob[0]),
-            "timestamp": timestamp_ist  # Store timestamp
+            "timestamp": timestamp_ist
 
         }
 
@@ -400,7 +397,9 @@ class EmailProcessing:
             "start_date":features.get("Intake/Start Date"),
             "how_you_know":features.get("intro_source"),
             "preferred_contact_time":features.get("preferred_contact_time"),
-            "email_body":features.get("email_body")
+            "email_body":features.get("email_body"),
+            "app_used":features.get("app_used"),
+            "event_attended":features.get("event_attended"),
         }
 
         return data
@@ -455,6 +454,8 @@ class EmailProcessing:
                 data_dict['name'] = features.get('Name')
                 data_dict['phone_number'] = features.get('Phone Number')
                 data_dict['email_body'] = email
+                features['app_used'] =  data_dict.get('app_used')
+                features['event_attended'] =  data_dict.get('event_attended')
 
                 data_dict = self.match_featuers_for_dynamodb(data_dict)
 
