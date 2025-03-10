@@ -243,7 +243,10 @@ class EmailProcessing:
 
         month, year = date_obj.month, date_obj.year
 
-        return date_str
+        # Set to first day of the month
+        first_date_of_month = date_obj.replace(day=1)
+
+        return first_date_of_month.strftime("%Y-%m-%d")
 
     def months_between_dates(self,target_date_str):
 
@@ -457,9 +460,9 @@ class EmailProcessing:
                 features['app_used'] =  data_dict.get('app_used')
                 features['event_attended'] =  data_dict.get('event_attended')
 
-                data_dict = self.match_featuers_for_dynamodb(data_dict)
+                dynamodb_compatabile_dict = self.match_featuers_for_dynamodb(data_dict)
 
-                self.store_prediction(features,'Email submission',data_dict,message.get('email'),prediction,prob)
+                self.store_prediction(features,'Email submission',dynamodb_compatabile_dict,message.get('email'),prediction,prob)
 
                 logging.info("prediction stored")
 
