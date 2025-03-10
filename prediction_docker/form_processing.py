@@ -185,8 +185,8 @@ class FormProcessing:
             self.predictions_table.put_item(Item=item)
             print(f"Stored Prediction ID: {prediction_id}")
 
-        def standardize_score(self,english_test,english_test_score:float):
-            if english_test and english_test_score:
+        def standardize_score(self,english_test,english_test_score):
+            if english_test and english_test != 'NA' and english_test_score != '':
                 if english_test == "IELTS":
                     # IELTS: Original scale 0-9
                     return 1 + (english_test_score - 0) * (10 - 1) / (9 - 0)
