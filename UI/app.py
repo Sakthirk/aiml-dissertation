@@ -120,27 +120,13 @@ def get_submissions():
     else:
         response = table.scan()  # No filter, get all records
 
-    print(jsonify(response.get("Items", [])))
+    items = response.get("Items", [])
+
+    # Sort by timestamp in descending order
+    sorted_items = sorted(items, key=lambda x: x.get("timestamp", 0), reverse=True)
     
-    return jsonify(response.get("Items", []))
+    return jsonify(sorted_items)
 
 if __name__ == '__main__':
     app.run(debug=True)
 
-
-# from boto3.dynamodb.conditions import Key
-
-# # Initialize the DynamoDB resource
-# # dynamodb = boto3.resource("dynamodb")
-# clickstream_table = dynamodb.Table("ClickstreamTable")
-
-# def get_clickstream_data(email_id):
-#     response = clickstream_table.query(
-#         KeyConditionExpression=Key("email_id").eq(email_id)
-#     )
-#     return response["Items"]
-
-# # Example usage
-# user_email = "user1@gmail.com"
-# clickstream_data = get_clickstream_data(user_email)
-# print(json.dumps(clickstream_data, indent=4))
