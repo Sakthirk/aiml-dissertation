@@ -185,8 +185,8 @@ class FormProcessing:
             self.predictions_table.put_item(Item=item)
             print(f"Stored Prediction ID: {prediction_id}")
 
-        def standardize_score(self,english_test,english_test_score:float):
-            if english_test and english_test_score:
+        def standardize_score(self,english_test,english_test_score):
+            if english_test and english_test != 'NA' and english_test_score != '':
                 if english_test == "IELTS":
                     # IELTS: Original scale 0-9
                     return 1 + (english_test_score - 0) * (10 - 1) / (9 - 0)
@@ -200,7 +200,7 @@ class FormProcessing:
             
         def match_features_to_model_columns(self,features,email):
 
-            proficiency_test_score = float(features.get('proficiency_test_score').strip()) if features.get('proficiency_test_score') is not None and features.get('proficiency_test_score') !='' else None
+            proficiency_test_score = float(features.get('proficiency_test_score').strip()) if (features.get('proficiency_test_score') is not None and features.get('proficiency_test_score') !='') else None
 
             feature_dict = {
                 "student_country": [features.get('country_of_residence')],
@@ -212,7 +212,7 @@ class FormProcessing:
                 "intake": [self.get_intake_with_year(features.get('start_date'))],
                 "budget": [self.process_budget(features.get('budget'))],
                 "english_test": [features.get('proficiency_test')],
-                "english_test_score": [features.get('proficiency_test_score')],
+                "english_test_score": [proficiency_test_score],
                 "time_to_study": [self.months_between_dates(features.get('start_date'))],
                 "intro_source": [features.get('how_you_know')],
                 "app_used": [ "Yes" if len(self.get_clickstream_data(email))>= 1 else "No"],
