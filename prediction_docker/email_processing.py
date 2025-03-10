@@ -397,7 +397,7 @@ class EmailProcessing:
             "field_of_study":features.get("area_of_study"),
             "desired_country":features.get("destination_country"),
             "budget":features.get("budget"),
-            "start_date":features.get("Intake/Start Date"),
+            "start_date":features.get("intake"),
             "how_you_know":features.get("intro_source"),
             "preferred_contact_time":features.get("preferred_contact_time"),
             "email_body":features.get("email_body"),
@@ -469,9 +469,9 @@ class EmailProcessing:
                 return "Email processing completed and stored the predictions in dynamo DB !"
 
             else:
-                logging.info(f"We Score only Study Abrod enquiry, Predicted Intent - {intent}")
+                # logging.info(f"We Score only Study Abrod enquiry, Predicted Intent - {intent}")
 
-                return "We Score only Study Abrod enquiry, Predicted Intent - {intent}"
+                return f"We Score only Study Abrod enquiry, Predicted Intent - {intent}"
             
         except Exception as error:
             logging.info("Exception raised")
