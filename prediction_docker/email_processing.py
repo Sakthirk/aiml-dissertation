@@ -243,15 +243,7 @@ class EmailProcessing:
 
         month, year = date_obj.month, date_obj.year
 
-        # Define intake periods
-        if 1 <= month <= 4:
-            intake = "Spring"
-        elif 5 <= month <= 8:
-            intake = "Summer"
-        else:
-            intake = "Fall"
-
-        return f"{intake} {year}"
+        return f"{month} {year}"
 
     def months_between_dates(self,target_date_str):
 
