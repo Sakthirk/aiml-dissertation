@@ -200,7 +200,7 @@ class FormProcessing:
             
         def match_features_to_model_columns(self,features,email):
 
-            proficiency_test_score = float(features.get('proficiency_test_score').strip()) if features.get('proficiency_test_score') else None
+            proficiency_test_score = float(features.get('proficiency_test_score').strip()) if features.get('proficiency_test_score') is not None and features.get('proficiency_test_score') !='' else None
 
             feature_dict = {
                 "student_country": [features.get('country_of_residence')],
