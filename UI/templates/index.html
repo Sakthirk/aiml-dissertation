@@ -376,7 +376,7 @@
             const form = document.getElementById("formSubmission");
 
             const samples = { 
-                1: {
+                1: { // High priority
                     name: "Test user1",
                     email: "test_user1@gmail.com",
                     phone_number: "1234567890",
@@ -393,7 +393,7 @@
                     how_you_know: "Social Media",
                     sponsor: "Parents"
                 },
-                2: {
+                2: { // Low priority
                     name: "Test user2",
                     email: "test_user21234@gmail.com",
                     phone_number: "9876543210",
@@ -410,23 +410,6 @@
                     how_you_know: "Others",
                     sponsor: "Others"
                 },
-                3: {
-                    name: "test_user 3",
-                    email: "test_user2123@gmail.com",
-                    phone_number: "1122334455",
-                    country_of_residence: "UK",
-                    preferred_university: "",
-                    highest_qualification: "UG",
-                    preferred_contact_time: "4 PM - 6 PM",
-                    desired_country: "USA",
-                    field_of_study: "AI & Robotics",
-                    start_date: "2030-06-20",
-                    budget: "20,000 - 30,000 USD",
-                    proficiency_test: "TOEFL",
-                    proficiency_test_score: "80",
-                    how_you_know: "Event",
-                    sponsor: "Parents"
-                }
             };
 
             const selectedSample = samples[sampleNumber];
